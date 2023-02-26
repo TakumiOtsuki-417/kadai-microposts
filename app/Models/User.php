@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Micropost;
 
 class User extends Authenticatable
 {
@@ -54,7 +55,7 @@ class User extends Authenticatable
      */
     public function loadRelationshipCounts()
     {
-        $this->loadCount(['microposts', 'followings', 'followers']);
+        $this->loadCount(['microposts', 'followings', 'followers', 'favorites']);
     }
     /**
      * このユーザがフォロー中のユーザ。（Userモデルとの関係を定義）
@@ -132,5 +133,39 @@ class User extends Authenticatable
         // それらのユーザが所有する投稿に絞り込む
         return Micropost::whereIn('user_id', $userIds);
     }
+    /**
+     * お気に入りの投稿（Micropostモデルとの関係を定義）
+     */
+    public function favorites(){
+        return $this->belongsToMany(Micropost::class, 'favorites', 'user_id', 'micropost_id')->withTimestamps();
+    }
 
+    // 投稿をお気に入り登録する
+    public function add_favorite($micropostId)
+    {
+        $exist = $this->is_favorite($micropostId); //既にお気に入りか
+        if ($exist) {
+            return false;
+        } else {
+            $this->favorites()->attach($micropostId);
+            return true;
+        }
+    }
+    
+    // 投稿をお気に入り解除する
+    public function remove_favorite($micropostId)
+    {
+        $exist = $this->is_favorite($micropostId); //既にお気に入りか
+        if ($exist) {
+            $this->favorites()->detach($micropostId);
+            return true;
+        } else {
+            return false;
+        }
+    }
+    // 既にお気に入り登録された投稿かを調べる
+    public function is_favorite($micropostId)
+    {
+        return $this->favorites()->where('micropost_id', $micropostId)->exists();
+    }
 }
